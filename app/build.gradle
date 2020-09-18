@@ -16,10 +16,10 @@ android {
 
     signingConfigs {
         release {
-            storeFile file('LocationKitV5Java.jks')
-            keyAlias 'LocationKitV5Java'
-            keyPassword 'password'
-            storePassword 'password'
+            storeFile file('HuaweiSampleKey.jks')
+            storePassword "HuaweiSampleKey"
+            keyAlias "HuaweiSampleKey"
+            keyPassword "HuaweiSampleKey"
             v1SigningEnabled true
             v2SigningEnabled true
         }
