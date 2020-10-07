@@ -16,9 +16,14 @@ import android.os.Build;
 import android.os.Bundle;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import com.huawei.hmf.tasks.OnFailureListener;
+import com.huawei.hmf.tasks.OnSuccessListener;
 import com.huawei.hmf.tasks.Task;
 import com.huawei.hms.location.ActivityConversionData;
+import com.huawei.hms.location.ActivityConversionInfo;
+import com.huawei.hms.location.ActivityConversionRequest;
 import com.huawei.hms.location.ActivityIdentification;
 import com.huawei.hms.location.ActivityIdentificationData;
 import com.huawei.hms.location.ActivityIdentificationService;
@@ -26,6 +31,7 @@ import com.huawei.hms.location.FusedLocationProviderClient;
 import com.huawei.hms.location.LocationServices;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 import static com.huawei.dtse.locationv5.locationkitv5java.LocationBroadcastReceiver.ACTION_DELIVER_LOCATION;
@@ -39,10 +45,10 @@ import static com.huawei.dtse.locationv5.locationkitv5java.util.util.log;
 public class MainActivity extends AppCompatActivity {
 
     public static boolean isListenActivityIdentification = true;
-    private static final int REQUEST_CODE_1 = 1;
-    private static final int REQUEST_CODE_2 = 2;
-    private static final int REQUEST_CODE_3 = 3;
-    private static final int REQUEST_CODE_4 = 4;
+    private static final int REQUEST_CODE_LOCATION_SDK27 = 1;
+    private static final int REQUEST_CODE_LOCATION_SDK28 = 2;
+    private static final int REQUEST_CODE_ACTIVITY_RECOGNITION_SDK27 = 3;
+    private static final int REQUEST_CODE_ACTIVITY_RECOGNITION_SDK28 = 4;
 
     private FusedLocationProviderClient fusedLocationProviderClient;
     private ActivityIdentificationService activityIdentificationService;
@@ -54,6 +60,9 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvConversion;
     private TextView tvLocations;
     private Switch toggleRecognition;
+
+    private String conversionText;
+    private String recognitionText;
 
 
     @Override
@@ -67,6 +76,9 @@ public class MainActivity extends AppCompatActivity {
         tvConversion = findViewById(R.id.tvConversion);
         tvLocations = findViewById(R.id.tvLocations);
         toggleRecognition = findViewById(R.id.toggleRecognition);
+
+        conversionText = getString(R.string.str_activity_conversion_failed);
+        recognitionText = getString(R.string.str_activity_recognition_failed);
 
         Objects.requireNonNull(getSupportActionBar()).hide();
         requestPermission();
@@ -113,7 +125,7 @@ public class MainActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             if (Objects.equals(intent.getAction(), ACTION_DELIVER_LOCATION)) {
                 updateActivityIdentificationUI(Objects.requireNonNull(intent.getExtras()).getParcelableArrayList(EXTRA_HMS_LOCATION_RECOGNITION));
-                updateActivityConversionUI(intent.getExtras().getParcelableArrayList(EXTRA_HMS_LOCATION_CONVERSION));
+                updateActivityConversionUI(Objects.requireNonNull(intent.getExtras()).getParcelableArrayList(EXTRA_HMS_LOCATION_CONVERSION));
                 updateLocationsUI(intent.getExtras().getParcelableArrayList(EXTRA_HMS_LOCATION_RESULT));
             }
         }
@@ -134,26 +146,30 @@ public class MainActivity extends AppCompatActivity {
     public void updateActivityIdentificationUI(ArrayList<ActivityIdentificationData> statuses) {
         if (statuses != null) {
             StringBuilder out = new StringBuilder();
-            statuses.forEach(item -> {
+            for (ActivityIdentificationData item: statuses) {
                 out.append(LocationBroadcastReceiver.statusFromCode(item.getIdentificationActivity()));
                 out.append(" ");
-            });
+
+                recognitionText = LocationBroadcastReceiver.statusFromCode(item.getIdentificationActivity());
+            }
             tvRecognition.setText(out.toString());
         } else {
-            tvRecognition.setText(getString(R.string.str_activity_recognition_failed));
+            tvRecognition.setText(recognitionText);
         }
     }
 
     public void updateActivityConversionUI(ArrayList<ActivityConversionData> statuses) {
         if (statuses != null) {
             StringBuilder out = new StringBuilder();
-            statuses.forEach( item -> {
+            for (ActivityConversionData item: statuses) {
                 out.append(LocationBroadcastReceiver.statusFromCode(item.getConversionType()));
                 out.append(" ");
-            });
+
+                conversionText = LocationBroadcastReceiver.statusFromCode(item.getConversionType());
+            }
             tvConversion.setText(out.toString());
         } else {
-            tvConversion.setText(getString(R.string.str_activity_conversion_failed));
+            tvConversion.setText(conversionText);
         }
     }
 
@@ -173,11 +189,13 @@ public class MainActivity extends AppCompatActivity {
     private void startUserActivityTracking() {
         registerReceiver(gpsReceiver, new IntentFilter(ACTION_DELIVER_LOCATION));
         requestActivityUpdates(REQUEST_PERIOD);
+        startConversionInfoUpdates();
     }
 
     private void stopUserActivityTracking() {
         unregisterReceiver(gpsReceiver);
         removeActivityUpdates();
+        removeConversionInfoUpdates();
     }
 
     private void requestActivityUpdates(long detectionIntervalMillis) {
@@ -208,6 +226,49 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void startConversionInfoUpdates() {
+        ActivityConversionInfo activityConversionInfo1 = new ActivityConversionInfo(ActivityIdentificationData.STILL, ActivityConversionInfo.ENTER_ACTIVITY_CONVERSION);
+        ActivityConversionInfo activityConversionInfo2 = new ActivityConversionInfo(ActivityIdentificationData.STILL, ActivityConversionInfo.EXIT_ACTIVITY_CONVERSION);
+        List<ActivityConversionInfo> activityConversionInfoList = new ArrayList<>();
+        activityConversionInfoList.add(activityConversionInfo1);
+        activityConversionInfoList.add(activityConversionInfo2);
+        ActivityConversionRequest request = new ActivityConversionRequest();
+        request.setActivityConversions(activityConversionInfoList);
+
+        requestConversionInfo(request);
+    }
+
+    private void requestConversionInfo(ActivityConversionRequest request) {
+        Task<Void> task = activityIdentificationService.createActivityConversionUpdates(request, pendingIntent);
+        task.addOnSuccessListener(new OnSuccessListener<Void>() {
+            @Override
+            public void onSuccess(Void aVoid) {
+                log("createActivityConversionUpdates onSuccess");
+            }
+        }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(Exception e) {
+                log("createActivityConversionUpdates onFailure:" + e.getMessage());
+            }
+        });
+    }
+
+    private void removeConversionInfoUpdates() {
+        activityIdentificationService.deleteActivityConversionUpdates(pendingIntent)
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        log("deleteActivityConversionUpdates onSuccess");
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(Exception e) {
+                        log("deleteActivityConversionUpdates onFailure:" + e.getMessage());
+                    }
+                });
+    }
+
     //-------------------------------------------
     private void requestPermission() {
         // You must have the ACCESS_COARSE_LOCATION or ACCESS_FINE_LOCATION permission.
@@ -219,7 +280,7 @@ public class MainActivity extends AppCompatActivity {
                     ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
             ) {
                 String[] strings = new String[] {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION};
-                ActivityCompat.requestPermissions(this, strings, REQUEST_CODE_1);
+                ActivityCompat.requestPermissions(this, strings, REQUEST_CODE_LOCATION_SDK27);
             }
         } else {
             log("sdk >= 28 Q");
@@ -232,7 +293,7 @@ public class MainActivity extends AppCompatActivity {
                         Manifest.permission.ACCESS_FINE_LOCATION,
                         Manifest.permission.ACCESS_COARSE_LOCATION,
                         Manifest.permission.ACCESS_BACKGROUND_LOCATION};
-                ActivityCompat.requestPermissions(this, strings, REQUEST_CODE_2);
+                ActivityCompat.requestPermissions(this, strings, REQUEST_CODE_LOCATION_SDK28);
             }
         }
     }
@@ -242,14 +303,14 @@ public class MainActivity extends AppCompatActivity {
             if (ActivityCompat.checkSelfPermission(this,
                     "com.huawei.hms.permission.ACTIVITY_RECOGNITION") != PackageManager.PERMISSION_GRANTED) {
                 String[] permissions = new String[] {"com.huawei.hms.permission.ACTIVITY_RECOGNITION"};
-                ActivityCompat.requestPermissions(this, permissions, REQUEST_CODE_3);
+                ActivityCompat.requestPermissions(this, permissions, REQUEST_CODE_ACTIVITY_RECOGNITION_SDK27);
                 log("requestActivityRecognitionPermission: apply permission");
             }
         } else {
             if (ActivityCompat.checkSelfPermission(this,
                     Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) {
                 String[] permissions = new String[] {Manifest.permission.ACTIVITY_RECOGNITION};
-                ActivityCompat.requestPermissions(this, permissions, REQUEST_CODE_4);
+                ActivityCompat.requestPermissions(this, permissions, REQUEST_CODE_ACTIVITY_RECOGNITION_SDK28);
                 log("requestActivityRecognitionPermission: apply permission");
             }
         }
@@ -258,7 +319,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_CODE_1) {
+        if (requestCode == REQUEST_CODE_LOCATION_SDK27) {
             if (grantResults.length > 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED &&
                     grantResults[1] == PackageManager.PERMISSION_GRANTED) {
                 log("onRequestPermissionsResult: apply LOCATION PERMISSION successful");
@@ -267,7 +328,7 @@ public class MainActivity extends AppCompatActivity {
                 log("onRequestPermissionsResult: apply LOCATION PERMISSION failed");
             }
         }
-        if (requestCode == REQUEST_CODE_2) {
+        if (requestCode == REQUEST_CODE_LOCATION_SDK28) {
             if (grantResults.length > 2 && grantResults[2] == PackageManager.PERMISSION_GRANTED &&
                     grantResults[0] == PackageManager.PERMISSION_GRANTED &&
                     grantResults[1] == PackageManager.PERMISSION_GRANTED) {
@@ -277,7 +338,7 @@ public class MainActivity extends AppCompatActivity {
                 log("onRequestPermissionsResult: apply ACCESS_BACKGROUND_LOCATION  failed");
             }
         }
-        if (requestCode == REQUEST_CODE_3) {
+        if (requestCode == REQUEST_CODE_ACTIVITY_RECOGNITION_SDK27) {
             if (grantResults.length != 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 log("onRequestPermissionsResult: apply com.huawei.hms.permission.ACTIVITY_RECOGNITION successful");
                 startUserActivityTracking();
@@ -285,7 +346,7 @@ public class MainActivity extends AppCompatActivity {
                 log("onRequestPermissionsResult: apply com.huawei.hms.permission.ACTIVITY_RECOGNITION  failed");
             }
         }
-        if (requestCode == REQUEST_CODE_4 && Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+        if (requestCode == REQUEST_CODE_ACTIVITY_RECOGNITION_SDK28 && Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
             if (grantResults.length != 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 log("onRequestPermissionsResult: apply " + Manifest.permission.ACTIVITY_RECOGNITION + " successful");
                 startUserActivityTracking();

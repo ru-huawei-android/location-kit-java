@@ -7,6 +7,7 @@ import android.location.Location;
 import android.os.Parcelable;
 
 import com.huawei.hms.location.ActivityConversionData;
+import com.huawei.hms.location.ActivityConversionInfo;
 import com.huawei.hms.location.ActivityConversionResponse;
 import com.huawei.hms.location.ActivityIdentificationData;
 import com.huawei.hms.location.ActivityIdentificationResponse;
@@ -27,33 +28,29 @@ public class LocationBroadcastReceiver extends BroadcastReceiver {
     public static final String EXTRA_HMS_LOCATION_RESULT = "EXTRA_HMS_LOCATION_RESULT";
     public static final String EXTRA_HMS_LOCATION_AVAILABILITY = "EXTRA_HMS_LOCATION_AVAILABILITY";
     public static final long REQUEST_PERIOD = 5000L;
-    private static final int VEHICLE = 100;
-    private static final int BIKE = 101;
-    private static final int FOOT = 102;
-    private static final int STILL = 103;
-    private static final int OTHERS = 104;
-    private static final int TILTING = 105;
-    private static final int WALKING = 107;
-    private static final int RUNNING = 108;
 
     public static String statusFromCode(int code) {
         switch (code) {
-            case VEHICLE:
+            case ActivityIdentificationData.VEHICLE:
                 return "VEHICLE";
-            case BIKE:
+            case ActivityIdentificationData.BIKE:
                 return "BIKE";
-            case FOOT:
+            case ActivityIdentificationData.FOOT:
                 return "FOOT";
-            case STILL:
+            case ActivityIdentificationData.STILL:
                 return "STILL";
-            case OTHERS:
+            case ActivityIdentificationData.OTHERS:
                 return "OTHERS";
-            case TILTING:
+            case ActivityIdentificationData.TILTING:
                 return "TILTING";
-            case WALKING:
+            case ActivityIdentificationData.WALKING:
                 return "WALKING";
-            case RUNNING:
+            case ActivityIdentificationData.RUNNING:
                 return "RUNNING";
+            case ActivityConversionInfo.EXIT_ACTIVITY_CONVERSION:
+                return "OUT FROM STILL ACTIVITY";
+            case ActivityConversionInfo.ENTER_ACTIVITY_CONVERSION:
+                return "IN STILL ACTIVITY";
             default:
                 return "UNDEFINED";
         }
@@ -83,18 +80,18 @@ public class LocationBroadcastReceiver extends BroadcastReceiver {
                         deliverIntent.putParcelableArrayListExtra(EXTRA_HMS_LOCATION_RECOGNITION, (ArrayList<? extends Parcelable>) list);
             }
 
-            if (LocationResult.hasResult(intent)) {
-                LocationResult result = LocationResult.extractResult(intent);
-                if (result != null) {
-                    List<Location> list = result.getLocations();
-                            deliverIntent.putParcelableArrayListExtra(EXTRA_HMS_LOCATION_RESULT, (ArrayList<? extends Parcelable>) list);
-                }
-            }
-
-            if (LocationAvailability.hasLocationAvailability(intent)) {
-                LocationAvailability locationAvailability = LocationAvailability.extractLocationAvailability(intent);
-                deliverIntent.putExtra(EXTRA_HMS_LOCATION_AVAILABILITY, locationAvailability.isLocationAvailable());
-            }
+//            if (LocationResult.hasResult(intent)) {
+//                LocationResult result = LocationResult.extractResult(intent);
+//                if (result != null) {
+//                    List<Location> list = result.getLocations();
+//                            deliverIntent.putParcelableArrayListExtra(EXTRA_HMS_LOCATION_RESULT, (ArrayList<? extends Parcelable>) list);
+//                }
+//            }
+//
+//            if (LocationAvailability.hasLocationAvailability(intent)) {
+//                LocationAvailability locationAvailability = LocationAvailability.extractLocationAvailability(intent);
+//                deliverIntent.putExtra(EXTRA_HMS_LOCATION_AVAILABILITY, locationAvailability.isLocationAvailable());
+//            }
         }
         context.sendBroadcast(deliverIntent);
     }
