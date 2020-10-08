@@ -25,8 +25,6 @@ public class LocationBroadcastReceiver extends BroadcastReceiver {
     public static final String ACTION_DELIVER_LOCATION = "ACTION_DELIVER_LOCATION";
     public static final String EXTRA_HMS_LOCATION_RECOGNITION = "EXTRA_HMS_LOCATION_RECOGNITION";
     public static final String EXTRA_HMS_LOCATION_CONVERSION = "EXTRA_HMS_LOCATION_CONVERSION";
-    public static final String EXTRA_HMS_LOCATION_RESULT = "EXTRA_HMS_LOCATION_RESULT";
-    public static final String EXTRA_HMS_LOCATION_AVAILABILITY = "EXTRA_HMS_LOCATION_AVAILABILITY";
     public static final long REQUEST_PERIOD = 5000L;
 
     public static String statusFromCode(int code) {
@@ -70,28 +68,15 @@ public class LocationBroadcastReceiver extends BroadcastReceiver {
             if (activityConversionResult != null) {
                 List<ActivityConversionData> list =
                         activityConversionResult.getActivityConversionDatas();
-                        deliverIntent.putParcelableArrayListExtra(EXTRA_HMS_LOCATION_CONVERSION, (ArrayList<? extends Parcelable>) list);
+                deliverIntent.putParcelableArrayListExtra(EXTRA_HMS_LOCATION_CONVERSION, (ArrayList<? extends Parcelable>) list);
             }
 
             ActivityIdentificationResponse activityRecognitionResult = ActivityIdentificationResponse.getDataFromIntent(intent);
             if (activityRecognitionResult != null && MainActivity.isListenActivityIdentification) {
                 List<ActivityIdentificationData> list =
                         activityRecognitionResult.getActivityIdentificationDatas();
-                        deliverIntent.putParcelableArrayListExtra(EXTRA_HMS_LOCATION_RECOGNITION, (ArrayList<? extends Parcelable>) list);
+                deliverIntent.putParcelableArrayListExtra(EXTRA_HMS_LOCATION_RECOGNITION, (ArrayList<? extends Parcelable>) list);
             }
-
-//            if (LocationResult.hasResult(intent)) {
-//                LocationResult result = LocationResult.extractResult(intent);
-//                if (result != null) {
-//                    List<Location> list = result.getLocations();
-//                            deliverIntent.putParcelableArrayListExtra(EXTRA_HMS_LOCATION_RESULT, (ArrayList<? extends Parcelable>) list);
-//                }
-//            }
-//
-//            if (LocationAvailability.hasLocationAvailability(intent)) {
-//                LocationAvailability locationAvailability = LocationAvailability.extractLocationAvailability(intent);
-//                deliverIntent.putExtra(EXTRA_HMS_LOCATION_AVAILABILITY, locationAvailability.isLocationAvailable());
-//            }
         }
         context.sendBroadcast(deliverIntent);
     }

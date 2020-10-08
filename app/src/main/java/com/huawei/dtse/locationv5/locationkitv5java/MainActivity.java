@@ -16,7 +16,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.huawei.hmf.tasks.OnFailureListener;
 import com.huawei.hmf.tasks.OnSuccessListener;
@@ -28,6 +27,7 @@ import com.huawei.hms.location.ActivityIdentification;
 import com.huawei.hms.location.ActivityIdentificationData;
 import com.huawei.hms.location.ActivityIdentificationService;
 import com.huawei.hms.location.FusedLocationProviderClient;
+import com.huawei.hms.location.LocationAvailability;
 import com.huawei.hms.location.LocationServices;
 
 import java.util.ArrayList;
@@ -38,7 +38,6 @@ import static com.huawei.dtse.locationv5.locationkitv5java.LocationBroadcastRece
 import static com.huawei.dtse.locationv5.locationkitv5java.LocationBroadcastReceiver.ACTION_PROCESS_LOCATION;
 import static com.huawei.dtse.locationv5.locationkitv5java.LocationBroadcastReceiver.EXTRA_HMS_LOCATION_CONVERSION;
 import static com.huawei.dtse.locationv5.locationkitv5java.LocationBroadcastReceiver.EXTRA_HMS_LOCATION_RECOGNITION;
-import static com.huawei.dtse.locationv5.locationkitv5java.LocationBroadcastReceiver.EXTRA_HMS_LOCATION_RESULT;
 import static com.huawei.dtse.locationv5.locationkitv5java.LocationBroadcastReceiver.REQUEST_PERIOD;
 import static com.huawei.dtse.locationv5.locationkitv5java.util.util.log;
 
@@ -58,7 +57,6 @@ public class MainActivity extends AppCompatActivity {
     private TextView btnCheckLocation;
     private TextView tvRecognition;
     private TextView tvConversion;
-    private TextView tvLocations;
     private Switch toggleRecognition;
 
     private String conversionText;
@@ -74,7 +72,6 @@ public class MainActivity extends AppCompatActivity {
         tvPosition = findViewById(R.id.tvPosition);
         tvRecognition = findViewById(R.id.tvRecognition);
         tvConversion = findViewById(R.id.tvConversion);
-        tvLocations = findViewById(R.id.tvLocations);
         toggleRecognition = findViewById(R.id.toggleRecognition);
 
         conversionText = getString(R.string.str_activity_conversion_failed);
@@ -97,6 +94,8 @@ public class MainActivity extends AppCompatActivity {
                 stopUserActivityTracking();
             }
         });
+
+        getLocationAvailability();
     }
 
     private void requestLastLocation() {
@@ -126,7 +125,6 @@ public class MainActivity extends AppCompatActivity {
             if (Objects.equals(intent.getAction(), ACTION_DELIVER_LOCATION)) {
                 updateActivityIdentificationUI(Objects.requireNonNull(intent.getExtras()).getParcelableArrayList(EXTRA_HMS_LOCATION_RECOGNITION));
                 updateActivityConversionUI(Objects.requireNonNull(intent.getExtras()).getParcelableArrayList(EXTRA_HMS_LOCATION_CONVERSION));
-                updateLocationsUI(intent.getExtras().getParcelableArrayList(EXTRA_HMS_LOCATION_RESULT));
             }
         }
     };
@@ -173,23 +171,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void updateLocationsUI(ArrayList<Location> locations) {
-        if (locations != null) {
-            StringBuilder out = new StringBuilder();
-            locations.forEach(item -> {
-                out.append(item.toString());
-                out.append(" ");
-            });
-            tvLocations.setText(out.toString());
-        } else {
-            tvLocations.setText(getString(R.string.str_activity_locations_failed));
-        }
-    }
-
     private void startUserActivityTracking() {
         registerReceiver(gpsReceiver, new IntentFilter(ACTION_DELIVER_LOCATION));
         requestActivityUpdates(REQUEST_PERIOD);
-        startConversionInfoUpdates();
+        requestConversionInfo();
     }
 
     private void stopUserActivityTracking() {
@@ -226,7 +211,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void startConversionInfoUpdates() {
+    private ActivityConversionRequest makeConversionInfoUpdatesRequest() {
         ActivityConversionInfo activityConversionInfo1 = new ActivityConversionInfo(ActivityIdentificationData.STILL, ActivityConversionInfo.ENTER_ACTIVITY_CONVERSION);
         ActivityConversionInfo activityConversionInfo2 = new ActivityConversionInfo(ActivityIdentificationData.STILL, ActivityConversionInfo.EXIT_ACTIVITY_CONVERSION);
         List<ActivityConversionInfo> activityConversionInfoList = new ArrayList<>();
@@ -235,11 +220,12 @@ public class MainActivity extends AppCompatActivity {
         ActivityConversionRequest request = new ActivityConversionRequest();
         request.setActivityConversions(activityConversionInfoList);
 
-        requestConversionInfo(request);
+       return request;
     }
 
-    private void requestConversionInfo(ActivityConversionRequest request) {
-        Task<Void> task = activityIdentificationService.createActivityConversionUpdates(request, pendingIntent);
+    private void requestConversionInfo() {
+        Task<Void> task = activityIdentificationService
+                .createActivityConversionUpdates(makeConversionInfoUpdatesRequest(), pendingIntent);
         task.addOnSuccessListener(new OnSuccessListener<Void>() {
             @Override
             public void onSuccess(Void aVoid) {
@@ -267,6 +253,31 @@ public class MainActivity extends AppCompatActivity {
                         log("deleteActivityConversionUpdates onFailure:" + e.getMessage());
                     }
                 });
+    }
+
+    /**
+     * Obtaining Location Availability
+     */
+    private void getLocationAvailability() {
+        try {
+            Task<LocationAvailability> locationAvailability = fusedLocationProviderClient.getLocationAvailability();
+            locationAvailability.addOnSuccessListener(new OnSuccessListener<LocationAvailability>() {
+                @Override
+                public void onSuccess(LocationAvailability locationAvailability) {
+                    if (locationAvailability != null) {
+                        log("getLocationAvailability onSuccess: " + locationAvailability.toString());
+                    }
+                }
+            })
+                    .addOnFailureListener(new OnFailureListener() {
+                        @Override
+                        public void onFailure(Exception e) {
+                            log("getLocationAvailability onFailure: " + e.getMessage());
+                        }
+                    });
+        } catch (Exception e) {
+            log("getLocationAvailability exception: " + e.getMessage());
+        }
     }
 
     //-------------------------------------------
